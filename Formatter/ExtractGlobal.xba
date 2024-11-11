@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="ExtractGlobal" script:language="StarBasic">Option Compatible
+Option ClassModule
+Option Explicit
+
+Private mErrors           AS Integer
+Private mDoc              AS Object
+Private mFile             AS String
+Private mModule	          AS String
+Private mToken            AS FormatToken
+Private mPositionReported AS Boolean
+Private mLogName          AS String
+Private mLogFile          AS Integer
+
+Private Sub Class_Initialize()
+	mErrors           = 0
+	mPositionReported = false
+	mLogFile          = -1
+End Sub
+
+Private Sub LogLine(line AS String)
+	If mLogFile = -1 Then
+		MsgBox line
+	Else
+		Print #mLogFile, Time + &quot; &quot; + line
+	End If
+End Sub
+
+Public Sub OpenDocument(file AS String)
+	Dim opts(0) As New com.sun.star.beans.PropertyValue
+	
+	With opts(0)
+		.Name = &quot;Hidden&quot;
+		.Value = True
+	End With
+	
+	mFile = file
+	mDoc  = StarDesktop.loadComponentFromURL(ConvertToURL(mFile), &quot;_blank&quot;, 0, opts())
+End Sub
+
+Public Property Let Log(name AS String)
+	mLogFile = Freefile
+	mLogName = name
+	
+	Open mLogName For Output As #mLogFile
+	Print #mLogFile, Date &amp; &quot; format extracted from &quot; &amp; mFile	
+End Property
+
+Public Property Let Token(token AS FormatToken)
+	mToken            = token
+	mPositionReported = false
+End Property
+
+Public Property Let Module(Name AS String)
+	mModule = Name
+End Property
+
+Public Property Get Module AS String
+	Module = mModule	
+End Property
+
+Public Property Get Doc AS Object
+	Doc = mDoc
+End Property
+
+Public Sub Report(ByVal message AS String, Optional isError AS Boolean)
+	If IsMissing(isError) Then isError = false
+	
+	If isError Then
+		message = &quot;ERROR &quot; + message
+		mErrors = mErrors + 1
+	End If
+	
+	If isError AND not mPositionReported AND not IsNull(token) Then
+		LogLine(&quot;Page &quot; + token.Page + &quot; offset &quot; + token.Offset + &quot; on directive &quot; + token.id)
+		mPositionReported = true
+	End If
+	
+	LogLine(message)
+End Sub
+
+Public Sub Complete
+	If mLogFile Then 
+		Close #mLogFile
+		
+		If mErrors &lt;&gt; 0 Then MsgBox(&quot;Extracter reported &quot; &amp; mErrors &amp; &quot; error(s)&quot;)
+	End If
+End Sub
+</script:module>

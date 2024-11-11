@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="FormatReader" script:language="StarBasic">Option Compatible
+Option ClassModule
+Option Explicit
+
+Private _doc     AS Object
+Private _enum    As Object
+Private _vwcur   AS Object
+Private _text    AS String
+Private _isText  AS Boolean
+Private _page    AS Integer
+Private _fmtpidx AS Integer
+
+Private Sub Class_Initialize()
+	_text    = &quot;&quot;
+	_isText  = false
+	_page    = 0
+	_fmtpidx = 0
+End Sub
+
+Public Property Let Doc(document AS Object)
+	_doc    = document
+	_enum   = _doc.Text.createEnumeration
+	_vwcur  = _doc.currentController.ViewCursor
+	_vwcur.gotoStart(false)
+	_text   = &quot;&quot;
+	_isText = false
+End Property
+
+Public Sub Test
+	Dim dEnum AS Object
+	Dim tEnum AS Object
+	Dim t     AS Object
+	Dim tp    AS Object
+	Dim txt   AS String
+	Dim i	  AS Integer
+	
+	dEnum = _doc.Text.createEnumeration
+ 
+	&apos; loop over all paragraphs
+	While dEnum.hasMoreElements
+  		t = dEnum.nextElement
+ 		i = 0
+ 		If t.supportsService(&quot;com.sun.star.text.Paragraph&quot;) Then
+		    tEnum = t.createEnumeration
+
+			&apos; loop over all paragraph portions
+		    While tEnum.hasMoreElements
+	    		i   = i + 1
+				tp  = tEnum.nextElement
+ 				txt = tp.String
+	    		
+		    	If i &gt; 1 Then
+		    		MsgBox &quot;Multiple text &quot; &amp; txt
+	    		End If
+	    	
+			Wend
+ 		End If
+	Wend
+End Sub
+
+Private Function GetLine AS FormatToken
+	Dim elm AS Object
+	
+	GetLine = New FormatToken
+	
+	If _enum.hasMoreElements Then	
+		elm             = _enum.nextElement
+		GetLine.Comment = elm.String
+        _vwcur.gotoRange(elm, false)
+        
+        If _page &lt;&gt; _vwcur.Page Then _fmtpidx = 0
+        
+        _page = _vwcur.Page
+	End If	
+End Function
+
+Public Function IsNext() AS Boolean
+	Dim t AS FormatToken
+		
+	Do While not _isText
+		t = GetLine
+		
+		If t.IsEmpty Then Exit Do
+		
+		_text = Trim(t.Comment)
+		
+		If InStr(_Text, &quot;!&quot;) = 1 Then
+			_isText = true
+		Else
+			_text = &quot;&quot;
+		End If
+	Loop
+	
+	IsNext = _isText
+End Function
+
+Public Function GetToken AS FormatToken
+	Dim i     AS Integer
+	Dim text  AS String
+	Dim line  AS FormatToken
+	Dim token AS FormatToken
+	
+	i        = 1
+	_fmtpidx = _fmtpidx + 1
+	token    = new FormatToken
+	GetToken = token
+	token.SetPosition(_page, _fmtpidx)
+
+	If not _isText Then
+		token.SetError(&quot;No tokens available&quot;)
+	Else
+		text = _text
+		Do
+			Do While i &gt; Len(text)
+				line = GetLine
+				
+				If line.IsEmpty Then
+					_isText = false
+					_text   = &quot;&quot;
+					Exit Function
+				End If
+				
+				text = line.Comment
+				i    = 1
+			Loop
+			
+			token.AddCharacter(Mid(text, i, 1)
+			
+			If token.Complete Then
+				_isText = true
+				_text   = Right(text, Len(text) - i + 1)
+				
+				Exit Function
+			Else
+				i = i + 1
+			End If
+		Loop
+	End If
+End Function
+
+
+</script:module>

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="FormatToken" script:language="StarBasic">Option Compatible
+Option ClassModule
+
+Option Explicit
+
+Private _id       AS String
+Private _params   AS String
+Private _comment  AS String
+Private _isEmpty  AS Boolean
+Private _isValid  AS Boolean
+Private _state    AS Integer
+Private _inQuotes AS Boolean
+Private _page     AS Integer
+Private _offset   AS Integer
+
+Private Sub Class_Initialize()
+	_id       = &quot;&quot;
+	_params   = &quot;&quot;
+	_comment  = &quot;&quot;
+	_isEmpty  = true
+	_isValid  = true
+	_state    = 1
+	_inQuotes = false
+	_page     = 0
+	_offset   = 0
+End Sub
+
+Private Sub Add(value AS String, ch AS String)
+	If _state &lt; 3 AND (Asc(ch) = 13 OR Asc(ch) = 10) Then Exit Sub
+	
+	value = value &amp; ch
+End Sub
+
+Private Sub Clean(value AS String)
+	Dim ch AS String
+	
+	value = Trim(value)
+	
+	If Len(value) &gt; 0 AND Mid(value, 1, 1) = &quot;&quot;&quot;&quot;  Then value = Right(value, Len(Value) - 1)
+	If Len(value) &gt; 0 Then
+		If Mid(value, Len(value), 1) = &quot;&quot;&quot;&quot; Then value = Left(value, Len(Value) - 1)
+	End If
+	
+	value = Trim(value)
+End Sub
+
+Public Property Let Id(id AS String)
+	_id      = id
+	_isEmpty = false
+	_state   = 2
+End Property
+
+Public Property Get Id AS String
+	Clean(_id)
+	Id = _id
+End Property
+
+Public Property Let Params(params AS String)
+	_params  = params
+	_isEmpty = false
+	_state   = 3
+End Property
+
+Public Property Get Params AS String
+	Clean(_params)
+	Params = _params
+End Property
+
+Public Property Let Comment(comment AS String)
+	_comment = comment
+	_isEmpty = false
+	_state   = 4
+End Property
+
+Public Property Get Comment AS String
+	Clean(_comment)
+	Comment = _comment
+End Property
+
+Public Property Get IsEmpty AS Boolean
+	IsEmpty = _isEmpty
+End Property
+
+Public Property Get Valid AS Boolean
+	Valid = _isValid
+End Property
+
+Public Sub SetError(message AS String)
+	_comment = message
+	_isValid = false
+End Sub
+
+Public Sub SetPosition(page AS Integer, offset AS Integer)
+	_page   = page
+	_offset = offset
+End Sub
+
+Public Property Get Page AS Integer
+	Page = _page
+End Property
+
+Public Property Get Offset AS Integer
+	Offset = _offset
+End Property
+
+Public Sub AddCharacter(ByVal ch AS String)
+	Dim char AS String
+	&apos;
+	&apos; Convert left and right quotation mark to standard quotation mark
+	&apos;
+	If Asc(ch) = 8220 OR  Asc(ch) = 8221 Then 
+		char = &quot;&quot;&quot;&quot;
+	ElseIf Asc(ch) = 9 Then
+		char = &quot; &quot;
+	Else
+		char = ch
+	End If
+	
+	If char = &quot;&quot;&quot;&quot; Then
+		_inQuotes = not _inQuotes
+	ElseIf not _inQuotes Then
+		If char = &quot;,&quot; AND _state = 1 Then
+			_state = 2
+			Exit Sub
+		End If
+		
+		If char = &quot;:&quot; AND _state &lt;= 2 Then
+			_state = 3
+			Exit Sub
+		End If
+		
+		If char = &quot;!&quot; AND _id &lt;&gt; &quot;&quot; Then
+			_state = 4
+			Exit Sub
+		End If
+	End If
+
+	_isEmpty = false
+	
+	Select Case _state
+		Case 1
+			Add(_id, char)
+		Case 2
+			Add(_params, char)
+		Case 3
+			Add(_comment, char)
+		Case Else
+			SetError(&quot;Adding character &quot; &amp; char &amp; &quot; to a complete token&quot;)
+	End Select
+End Sub
+
+Public Function Complete AS Boolean
+	Complete = _state = 4
+End Function
+</script:module>

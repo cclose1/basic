@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="CopyExpenditure" script:language="StarBasic" script:moduleType="normal">Option Compatible
+Option Explicit
+
+Dim dialog AS Object
+&apos;
+&apos; This does not seem to work
+&apos;
+Function GetCellId(name AS String, isRef AS Boolean) AS string
+	Dim oRanges    as object
+	Dim oNamedCell as object
+ 	Dim iNMCount   as integer
+ 	Dim i          as integer
+ 
+	GetCellId = &quot;&quot;
+	oRanges   = ThisComponent.NamedRanges
+	
+	For i = 0 to oRanges.GetCount -1
+		oNamedCell = oRanges.GetByIndex(i)
+		
+		if oNamedCell.content = name AND isRef = true  then
+			GetCellId	= oNamedCell.Name
+		elseIf oNamedCell.name = name AND isRef = false  then
+			GetCellId	= oNamedCell.content
+		end if
+		
+&apos;		If GetCellId &lt;&gt; &quot;&quot; Then Exit Function
+	Next i
+End Function
+
+Function nameToDate(name AS String) AS Date
+	Dim month AS String
+	
+	nameToDate = &quot;&quot;
+	
+	If Len(name) &lt;&gt; 5 Then Exit Function
+	
+	month =Lcase(Mid(name, 1, 3))
+	
+	Select Case month
+		Case  &quot;jan&quot;
+			month = 1
+		Case  &quot;feb&quot;
+			month = 2
+		Case  &quot;mar&quot;
+			month = 3
+		Case  &quot;apr&quot;
+			month = 4
+		Case  &quot;may&quot;
+			month = 5
+		Case  &quot;jun&quot;
+			month = 6
+		Case  &quot;jul&quot;
+			month = 7
+		Case  &quot;aug&quot;
+			month = 8
+		Case  &quot;sep&quot;
+			month = 9
+		Case  &quot;oct&quot;
+			month = 10
+		Case  &quot;nov&quot;
+			month = 11
+		Case  &quot;dec&quot;
+			month = 12
+		Case Else
+			Exit Function
+	End Select
+	
+	nameToDate = DateSerial(&quot;20&quot; &amp; Mid(name, 4, 2), month, 1)
+End Function
+
+&apos;
+&apos; Converts a col number to its equivalent text. This seems to be a representation of col converted to a
+&apos; number based 26, i.e. each digit is is represented by the ASCII characters A to Z. A is digit 1 and
+&apos; Z digit 26. The digit 0 is set to 26.
+&apos;
+&apos; Note: The conversion assumes that the first col is 1 rather than 0. For the methods requiring a column the
+&apos;       first column is 0.
+&apos;
+&apos; Don&apos;t fully understand this, but it seems to work.
+&apos;
+Function columnToText(ByVal col As Long) AS String
+	Dim Digit AS Integer
+	
+	col          = col + 1 &apos; Convert to column number used for the conversion.
+	columnToText = &quot;&quot;
+	
+	Do While col &gt; 0
+		Digit = col Mod 26
+		col   = Int((col - digit) / 26)	
+		
+		if Digit = 0 Then
+			&apos;
+			&apos; Set to digit 26 to ensure digits in range 1 to 26 and subtract 1 from col to ensure
+			&apos; that column remaining to be converted will give the correct value when converted back.
+			&apos;
+			Digit = 26
+			col   = col - 1
+		end if
+			
+		columnToText = Chr(digit + 64)  &amp; columnToText
+	Loop
+End Function
+
+&apos;
+&apos; This yields the same as the above, but to my mind is harder to see why.
+&apos;
+&apos; Not used.
+&apos;
+Function columnToTextX(ByVal col As Long) AS String
+	Dim Digit AS Integer
+	
+	columnToTextX = &quot;&quot;
+	
+	Do While col &gt;= 0
+		Digit        = col Mod 26
+		col          = Int((col - digit - 1) / 26)		
+		columnToTextX = Chr(digit + 65)  &amp; columnToTextX
+	Loop
+End Function
+&apos;
+&apos; Converts the string as created above to a column index.
+&apos;
+Function colToNumber(id AS String) AS Long
+	Dim char AS String
+	Dim i    AS Integer
+	
+	If IsNumeric(id) = true Then
+		colToNumber = id
+		Exit Function
+	End If
+	
+	colToNumber = 0
+	
+	For i = 1 To Len(id)
+		char        = Mid(id, i, 1)
+		colToNumber = 26 * colToNumber + ASC(char) - 64
+	Next
+	
+	colToNumber = colToNumber - 1 &apos;Correct value to start at 0 rather than 1
+End Function
+
+Function toRef(column AS Integer, row AS Integer, absolute AS Boolean, sheetName AS String)	
+	Dim	abs     AS String	
+	
+    abs   = IIf(absolute, &quot;$&quot;, &quot;&quot;)
+    toRef = abs + columnToText(column) + abs + (row + 1)
+    
+    If sheetName &lt;&gt; &quot;&quot; Then 
+    	toRef = sheetName + &quot;.&quot; + toRef
+    End If
+End Function
+
+Function getSheetMonthName(date As Date)
+	getSheetMonthName = Format(date, &quot;mmmyy&quot;)
+End Function
+
+Function getLabelRow(sheet AS Object, label AS String, labelCol AS Integer)
+	Dim rowCount AS Integer
+	Dim row      AS Integer
+	Dim cell     AS Object
+	Dim value    AS String
+	Dim Name     AS String
+	&apos;
+	&apos; Don&apos;t know exactly what Data is, but it seems to have sheet numeric values and a
+	&apos; very small value for other cells.
+	&apos;
+	&apos; However, its length seems to be determined by the last row containing data.
+	&apos;
+	rowCount    = Ubound(sheet.Data)
+	getLabelRow = -1
+	
+	For row = 0 to rowCount
+		cell = sheet.getCellByPosition(labelCol, row)
+		value = cell.getString()
+		
+		if value = label then
+			getLabelRow = row
+			exit For
+		end if	
+	Next
+End Function
+
+Sub setCellValue( _
+		dstSheet AS Variant, _ 
+		dstCol   AS Variant, _
+		dstRow   AS Integer, _
+		srcSheet AS Variant, _
+		value    AS String,  _
+		useRef   AS Boolean, _
+		absolute AS Boolean)
+
+	Dim	abs     AS String
+	Dim dstCell AS Object
+
+	dstCol  = colToNumber(dstCol)	
+    abs     = IIf(absolute, &quot;$&quot;, &quot;&quot;)
+    dstCell = dstSheet.getCellByPosition(dstCol, dstRow)
+    
+    If useRef Then
+    	value           = &quot;=&quot; + srcSheet.getName() + &quot;.&quot; + abs + value
+    	dstCell.formula = value
+    Else
+    	dstCell.setValue(value)   	
+    End If	
+End Sub
+
+Sub setCell( _
+		dstSheet AS Variant, _ 
+		dstCol   AS Variant, _
+		dstRow   AS Integer, _
+		srcSheet AS Variant, _
+		srcCol   AS Variant, _
+		srcRow   AS Integer, _
+		useRef   AS Boolean, _
+		absolute AS Boolean)
+
+	Dim	abs     AS String
+	Dim srcId   AS String
+	Dim dstCell AS Object
+	Dim temp    AS Variant
+
+	dstCol  = colToNumber(dstCol)
+	srcCol  = colToNumber(srcCol)	
+    abs     = IIf(absolute, &quot;$&quot;, &quot;&quot;)
+    dstCell = dstSheet.getCellByPosition(dstCol, dstRow)
+    
+    If useRef Then
+    	srcId           = &quot;=&quot; + toRef(srcCol, srcRow, absolute, srcSheet.getName())
+    	dstCell.formula = srcId
+    Else
+    	dstCell.setValue(srcSheet.getCellByPosition(srcCol, srcRow).getValue())   	
+    End If
+	
+End Sub
+&apos;
+&apos; Copy credit card data and the bank balance of the current sheet to the new sheet.
+&apos; 
+&apos; The row that has the text Bank Committed contains the credit card data in columns Q to V. These are
+&apos; copied to the same columns in row 2 of the new sheet, apart from column Q which is copied to column D.
+&apos;
+&apos; The bank balance is in columm B of row that has the text Bank Not Cleared column A. This is copied
+&apos; to column B of row 0 in the new sheet.
+&apos;
+Sub copyCCData(newSh AS Object, current AS Object)
+	Dim curRow AS Integer
+
+	curRow = getLabelRow(current, &quot;Bank Not Cleared&quot;, 0)
+	
+	setCell(newSh, &quot;B&quot;, 0, current, &quot;B&quot;, curRow, false, false)
+	
+	curRow = getLabelRow(current, &quot;Bank Committed&quot;, 0)
+	setCell(newSh, &quot;D&quot;, 2, current, &quot;Q&quot;, curRow, false, false)
+	setCell(newSh, &quot;R&quot;, 2, current, &quot;R&quot;, curRow, false, false)
+	setCell(newSh, &quot;S&quot;, 2, current, &quot;S&quot;, curRow, false, false)
+	setCell(newSh, &quot;T&quot;, 2, current, &quot;T&quot;, curRow, false, false)
+	setCell(newSh, &quot;U&quot;, 2, current, &quot;U&quot;, curRow, false, false)
+	setCell(newSh, &quot;V&quot;, 2, current, &quot;V&quot;, curRow, false, false)
+End Sub
+
+Sub setSummaryCell(summary AS Object,sumCol AS Variant, sumRow AS Integer, source AS Object, label AS String)
+	Dim row AS Integer
+	
+	row = getLabelRow(source, label, 0)
+	setCell(summary, sumCol, sumRow, source, 1, row, true, true)
+End Sub
+
+Sub Test(Max AS Long)
+	Dim text AS String
+	Dim temp AS String
+	Dim Id   AS Long
+	Dim cid  AS Long
+	
+	For Id = 1 to Max
+		text = columnToText(Id)
+		temp = columnToTextX(Id)
+		cid  = colToNumber(temp)
+	
+		If text &lt;&gt; temp Then
+			MsgBox(&quot;Mismatch &quot; + Id)
+&apos;			Exit For
+		End if
+	Next
+End Sub
+
+Function getCurrentSheet() AS Object
+	Dim sheets AS Object
+	
+	sheets          = ThisComponent.getSheets()
+	getCurrentSheet = sheets.getByName(&quot;Regular&quot;)
+	getCurrentSheet = sheets.getByIndex(getCurrentSheet.RangeAddress.Sheet + 1)
+End Function
+
+Sub createMonth(Optional date AS Date)
+	Dim sheets  As Object
+	DIM sheet   As Object
+	Dim cMonth  As Object
+	Dim nMonth  As Object
+	Dim summary AS Object
+	Dim pr      As Date
+	Dim shNxt   AS String
+	Dim row     AS Integer
+	Dim ins     AS Integer
+	Dim cell    AS Object
+	
+	cMonth = getCurrentSheet()
+	
+	If IsMissing(date) Then
+		date   = DateAdd(&quot;m&quot;, 1, nameToDate(cmonth.getName()))
+	end if
+	
+	shNxt = GetCellId(&quot;YearlyPension&quot;, false)
+&apos;	test(10000)
+	shNxt  = getSheetMonthName(date)
+	sheets = ThisComponent.getSheets()
+	sheet  = sheets.getByName(&quot;Regular&quot;)
+	
+	sheets.copyByName(sheet.Name, shNxt, cMonth.RangeAddress.Sheet)
+	nMonth = sheets.getByName(shNxt)
+	copyCCData(nMonth, cMonth)
+	row     = getLabelRow(nMonth, &quot;Bank Committed&quot;, 0)
+	summary = sheets.getByName(&quot;Summary&quot;)
+	ins     = getLabelRow(summary, &quot;Average&quot;, 6) - 1
+	summary.Rows.insertByIndex(ins, 1)
+	summary.getCellByPosition(0, ins).setString(Format(date, &quot;mm/dd/yy&quot;))
+	setCell(summary, 2, ins, nMonth, &quot;Q&quot;, row, true, true)
+	setCellValue(summary, 1, ins + 4, nMonth, &quot;YearlyPension&quot;, true, false) &apos;Won&apos;t work for OpenOffice
+	setSummaryCell(summary, &quot;B&quot;, ins, nMonth, &quot;Gain&quot;)
+	setSummaryCell(summary, &quot;D&quot;, ins, nMonth, &quot;Credit Card&quot;)
+	setSummaryCell(summary, &quot;E&quot;, ins, nMonth, &quot;CC Payment&quot;)
+	setSummaryCell(summary, &quot;F&quot;, ins, nMonth, &quot;Pension Income&quot;)
+	setSummaryCell(summary, &quot;G&quot;, ins, nMonth, &quot;Bank Spend&quot;)
+End Sub
+
+Sub startDialog()
+	Dim date AS Date
+	Dim toGo AS Integer
+	
+    BasicLibraries.LoadLibrary(&quot;Tools&quot;)
+	date   = DateAdd(&quot;m&quot;, 1, nameToDate(getCurrentSheet.getName()))
+	toGo   = DateDiff(&quot;d&quot;, now(), date)
+    dialog = LoadDialog(&quot;Standard&quot;, &quot;NewMonth&quot;) 
+   	dialog.getControl(&quot;SheetMonth&quot;).text = date
+   	dialog.getControl(&quot;DaysToDue&quot;).text = toGo
+   	dialog.getControl(&quot;ForceCreate&quot;).state = 0
+    dialog.Execute()
+End Sub
+
+Sub dialogEvent(par AS Object)
+	Dim date     AS Date
+	Dim daysToGo AS Integer
+	
+	date     = dialog.getControl(&quot;SheetMonth&quot;).text
+	daysToGo = dialog.getControl(&quot;DaysToDue&quot;).text
+	
+	If date = &quot;00:00:00&quot; OR date = &quot;&quot; Then
+		MsgBox &quot;New sheet date invalid&quot;
+		Exit Sub
+	End If
+	
+	If daysToGo &gt; 1 AND dialog.getControl(&quot;ForceCreate&quot;).State = 0 Then
+		MsgBox &quot;Current month still has &quot; &amp; daysToGo &amp; &quot; days remaining&quot;
+		Exit Sub
+	End If
+	
+	createMonth(date)
+	MsgBox &quot;Success&quot;
+	dialog.endExecute()
+End Sub
+</script:module>

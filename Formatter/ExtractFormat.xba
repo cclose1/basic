@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="ExtractFormat" script:language="StarBasic">Option Compatible
+Option Explicit
+
+rem Dim gdata AS new ExtractGlobal
+
+Sub Main
+ rem   BasicLibraries.loadLibrary(&quot;JSON&quot;)
+	Dim reader   AS Object
+	Dim token    AS new FormatToken
+	Dim orgs     AS new JSONArray
+	Dim phones   AS JSONArray
+	Dim services AS JSONArray
+	Dim contacts AS JSONArray
+	Dim org      AS JSONObject
+	Dim cHead    AS JSONObject
+	Dim data     AS new JSONObject
+	Dim fmt	     AS new JSONFormatter
+	
+	gdata.OpenDocument(&quot;C:\MyFiles\My Documents\OpenOfficeCode\TestFormatDoc.odt&quot;)
+	gdata.Log = &quot;C:\MyFiles\My Documents\OpenOfficeCode\TestFormatDoc.log&quot;
+	reader     = new FormatReader
+	reader.Doc = gdata.Doc
+&apos;	reader.Test
+
+	With reader
+		While .IsNext
+			token       = .GetToken
+			gdata.Token = token
+			
+			Select Case LCase(token.id)
+				Case &quot;!contact&quot;
+					If IsNull(contacts) Then 
+						contacts = new JSONArray
+						org.Add(&quot;Contacts&quot;, contacts)
+					End If
+					
+					phones         = Nothing
+					cHead          = GetContact(token)
+					contacts.Value = cHead
+				Case &quot;!phone&quot;
+					If IsNull(phones) Then 
+						phones = new JSONArray
+						cHead.Add(&quot;Phones&quot;, phones)
+					End If
+					
+					phones.Value = GetPhone(token)
+				Case &quot;!web&quot;
+					cHead.Add(&quot;Web&quot;, GetURL(token))
+				Case &quot;!email&quot;
+					cHead.Add(&quot;EMail&quot;, GetURL(token))
+				Case &quot;!address&quot;
+					org.Add(&quot;Address&quot;, GetAddress(token))
+				Case &quot;!services&quot;
+					If IsNull(services) Then 
+						Dim svc AS new JSONObject
+						services = new JSONArray
+						svc.Add(&quot;List&quot;, services)
+						org.Add(&quot;Services&quot;, svc)
+					End If
+					
+					services.Unpack(token.params, &quot;,&quot;, &quot;&quot;&quot;&quot;)
+					
+					If org.GetValue(&quot;Services&quot;).HasValue(&quot;Comment&quot;) And token.Comment &lt;&gt; &quot;&quot; Then
+						gdata.Report(&quot;Services already has a comment, so comment &apos;&quot; &amp; token.Comment &amp; &quot;&apos; ignored&quot;, true)
+					Else
+						org.GetValue(&quot;Services&quot;).Add(&quot;Comment&quot;, token.Comment, true)
+					End If
+					
+				Case &quot;!available&quot;
+					org.Add(&quot;Available&quot;, GetAvailable(token))
+				Case &quot;!&quot;
+				Case Else
+					org   = new JSONObject
+					cHead = org
+					org.Add(&quot;Id&quot;,          Right(token.id, Len(token.id) - 1))					
+					org.Add(&quot;Description&quot;, Trim(token.comment))
+					orgs.Value = org
+					phones     = Nothing
+					services   = Nothing
+					contacts   = Nothing
+					gdata.Report(&quot;Creating provider &quot; + org.GetValue(&quot;Id&quot;))
+			End Select
+		Wend
+		
+		data.Add(&quot;Data&quot;, orgs)
+		fmt.File         = &quot;C:\MyFiles\My Documents\OpenOfficeCode\TestFormatDoc.json&quot;
+		fmt.StrictQuotes = false
+		Build(fmt, &quot;&quot;, data)
+		fmt.Complete
+		gdata.Complete
+	End With
+End Sub
+
+Public Sub GetField(ByVal source AS String, ByVal sep AS String, ByRef field AS String, ByRef remainder AS String)
+	Dim i AS Integer
+	
+	i = InStr(source, sep)
+	
+	If i = 0 Then
+		field     = &quot;&quot;
+		remainder = source
+	Else
+		field     = Trim(Left(source, i - 1))
+		remainder = Trim(Right(source, Len(source) - i))
+	End If
+End Sub
+ 
+Public Function GetAddress(token AS FormatToken) AS JSONObject
+	Dim  flds AS new JSONArray
+	Dim  i    AS Integer
+	Dim  add  AS new JSONObject
+	
+	flds.Unpack(token.params, &quot;,&quot;, &quot;&quot;&quot;&quot;)
+	&apos;
+	&apos;Add Line1 to Line4 fields first
+	&apos;
+	For i = 1 To flds.Count
+		Select Case i
+			Case 1
+				add.Add(&quot;Line1&quot;, flds.GetValue(i))
+			Case 2
+				If flds.Count &gt;= 5 Then	add.Add(&quot;Line2&quot;, flds.GetValue(i), true)
+			Case 3
+				If flds.Count &gt;= 6 Then	add.Add(&quot;Line3&quot;, flds.GetValue(i), true)
+			Case 4
+				If flds.Count &gt;= 7 Then	add.Add(&quot;Line4&quot;, flds.GetValue(i), true)
+			Case Else
+				Exit For
+		End Select
+	Next
+	
+	If flds.Count &gt; 3 Then add.Add(&quot;City&quot;,   flds.GetValue(flds.Count - 2), true)
+	If flds.Count &gt; 2 Then add.Add(&quot;County&quot;, flds.GetValue(flds.Count - 1), true)
+	If flds.Count &gt; 1 Then add.Add(&quot;Code&quot;,   flds.GetValue(flds.Count),     true)
+	
+	add.Add(&quot;Comment&quot;, token.Comment, true)
+	GetAddress = add
+End Function
+
+Public Sub GetURL(token AS FormatToken) AS JSONObject
+	Dim url AS new JSONObject
+	
+	url.Add(&quot;URL&quot;,     token.Params)
+	url.Add(&quot;Comment&quot;, token.Comment, true)
+	GetURL = url
+End Sub
+
+Public Sub GetContact(token AS FormatToken) AS JSONObject
+	Dim flds    AS new JSONArray
+	Dim i       AS Integer
+	Dim contact AS new JSONObject
+	Dim roles   AS new JSONArray
+	
+	flds.Unpack(token.params, &quot;,&quot;, &quot;&quot;&quot;&quot;)
+	
+	For i = 1 To flds.Count
+		Select Case i
+			Case 1
+				contact.Add(&quot;Name&quot;, flds.GetValue(i))
+			Case Else
+				roles.Value = flds.GetValue(i)
+		End Select
+	Next
+	
+	If roles.Count &lt;&gt; 0 Then contact.Add(&quot;Roles&quot;, roles)
+	
+	contact.Add(&quot;Comment&quot;, token.Comment, true)
+	GetContact = contact
+End Sub
+
+Public Sub GetPhone(token AS FormatToken) AS JSONObject
+	Dim phone  AS new JSONObject
+	Dim typ    AS String
+	Dim number AS String
+	
+	GetField(token.params, &quot; &quot;, typ, number)
+	
+	Select Case LCase(typ)
+		Case &quot;&quot;
+			phone.Add(&quot;Type&quot;, &quot;Land&quot;)
+		Case &quot;m&quot;
+			phone.Add(&quot;Type&quot;, &quot;Mobile&quot;)
+		Case Else
+			phone.Add(&quot;Type&quot;, &quot;Land&quot;)
+			number = token.params
+	End Select
+	
+	phone.Add(&quot;Number&quot;, number)
+	phone.Add(&quot;Comment&quot;, token.Comment, true)
+	GetPhone = phone
+End Sub
+
+Public Sub GetAvailable(token AS FormatToken) AS JSONObject
+	Dim areas    AS new JSONArray
+	Dim area     AS JSONObject
+	Dim list     AS new JSONArray
+	Dim i        AS Integer
+	Dim modifier AS String
+	Dim fld      AS String
+	
+	list.Unpack(token.params, &quot;,&quot;, &quot;&quot;&quot;&quot;)
+	
+	For i = 1 To list.Count
+		Dim typ   AS String
+		Dim range AS Single
+		
+		range = -1
+		GetField(list.GetValue(i), &quot; &quot;, modifier, fld)
+		
+		If modifier = &quot;&quot; Or Len(modifier) &lt;&gt; 1 And InStr(&quot;PWDT&quot;, modifier) = 0 Then
+			modifier = &quot;P&quot; 
+			fld      = list.GetValue(i)
+		End If
+		
+		area = new JSONObject
+		
+		Select Case modifier
+			Case &quot;P&quot;
+				Dim j AS Integer
+				
+				typ = &quot;Code&quot;
+				&apos;
+				&apos; Find the offset of the first space to get to the start of the inbound code and
+				&apos; then find the offset of next space. If there is one, the following field should
+				&apos; be the radius.
+				&apos;
+				j = InStr(fld, &quot; &quot;)
+				j = InStr(j + 1, fld, &quot; &quot;)
+				
+				If j &lt;&gt; 0 Then					
+					range = Csng(Right(fld, Len(fld) - j))
+					fld   = Trim(Left(fld, j - 1))		 
+				End If
+			Case &quot;W&quot;
+				typ = &quot;Ward&quot;
+			Case &quot;D&quot;
+				typ = &quot;District&quot;
+			Case &quot;T&quot;
+				typ = &quot;Town&quot;
+		End Select
+			
+		area        = new JSONObject
+		areas.Value = area
+		area.Add(&quot;Name&quot;, fld)
+		area.Add(&quot;Type&quot;, typ)
+		
+		If range &gt;= 0 Then area.Add(&quot;Radius&quot;, range)
+	Next
+	
+	area = new JSONObject
+	area.Add(&quot;Areas&quot;,   areas)
+	area.Add(&quot;Comment&quot;, token.Comment, true)
+	GetAvailable = area
+End Sub
+
+Private Sub TestAddress(flds AS String, comment AS String)
+	Dim t AS new FormatToken
+	Dim f AS new JSONFormatter
+	
+	t.Id      = &quot;!Address&quot;
+	t.Params  = flds
+	t.Comment = comment
+	
+	Build(f, &quot;&quot;, GetAddress(t))
+	f.Complete
+	MsgBox(f.Text)			
+End Sub
+
+Private Sub TestAddresses
+	TestAddress(&quot;108 Romsey Rd, Winchester, Hants, SO22 5PJ&quot;, &quot;My address&quot;)
+	TestAddress(&quot;108 Romsey Rd, Line2, Winchester, Hants, SO22 5PJ&quot;, &quot;My address&quot;)
+	TestAddress(&quot;108 Romsey Rd, Line2, Line3, Winchester, Hants, SO22 5PJ&quot;, &quot;My address&quot;)
+	TestAddress(&quot;108 Romsey Rd, Line2, Line3, Line4, Winchester, Hants, SO22 5PJ&quot;, &quot;My address&quot;)
+End Sub
+</script:module>
