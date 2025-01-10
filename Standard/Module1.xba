@@ -3,4 +3,51 @@
 <script:module xmlns:script="http://openoffice.org/2000/script" script:name="Module1" script:language="StarBasic" script:moduleType="normal">REM  *****  BASIC  *****
 
 
+sub Main
+rem ----------------------------------------------------------------------
+rem define variables
+dim document   as object
+dim dispatcher as object
+rem ----------------------------------------------------------------------
+rem get access to the document
+document   = ThisComponent.CurrentController.Frame
+dispatcher = createUnoService(&quot;com.sun.star.frame.DispatchHelper&quot;)
+
+rem ----------------------------------------------------------------------
+dim args1(0) as new com.sun.star.beans.PropertyValue
+args1(0).Name = &quot;ToPoint&quot;
+args1(0).Value = &quot;$A$21&quot;
+
+dispatcher.executeDispatch(document, &quot;.uno:GoToCell&quot;, &quot;&quot;, 0, args1())
+
+rem ----------------------------------------------------------------------
+dim args2(0) as new com.sun.star.beans.PropertyValue
+args2(0).Name = &quot;NumberFormatValue&quot;
+args2(0).Value = 37
+
+dispatcher.executeDispatch(document, &quot;.uno:NumberFormatValue&quot;, &quot;&quot;, 0, args2())
+
+
+end sub
+
+Function getOffPeakKwh(kwh AS Single, cost AS Single, pkRate AS Single, opRate AS Single)
+	Dim oKwh AS Single
+	
+	oKwh = (cost  - pkRate * kwh) / (opRate - pkRate)
+	
+	getOffPeakKwh = oKwh	
+End Function
+
+Sub test()
+	Dim op AS Single
+	
+	op = getOffPeakKwh(33.1, 264, 34.568, 7.959)
+	op = getOffPeakKwh(19.8, 148, 34.568, 7.959)
+	op = getOffPeakKwh(21.2, 258, 34.568, 7.959)
+	op = getOffPeakKwh(35.4, 273, 34.568, 7.959)
+	op = getOffPeakKwh(34.5, 265, 34.568, 7.959)
+	op = getOffPeakKwh(27.4, 218, 34.568, 7.959)
+	op = getOffPeakKwh(36.7, 388, 34.568, 7.959)
+	op = getOffPeakKwh(34.5, 326, 34.568, 7.959)
+End Sub
 </script:module>

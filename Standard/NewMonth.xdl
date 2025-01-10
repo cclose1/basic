@@ -5,16 +5,16 @@
   <dlg:style dlg:style-id="0" dlg:font-name="Segoe UI Light" dlg:font-height="12" dlg:font-stylename="Regular" dlg:font-family="swiss" dlg:font-weight="75"/>
  </dlg:styles>
  <dlg:bulletinboard>
-  <dlg:text dlg:id="SheetDateLabel" dlg:tab-index="0" dlg:left="18" dlg:top="26" dlg:width="60" dlg:height="8" dlg:value="Sheet Date"/>
-  <dlg:datefield dlg:id="SheetMonth" dlg:tab-index="1" dlg:left="49" dlg:top="26" dlg:width="36" dlg:height="9" dlg:strict-format="true" dlg:date-format="short_DDMMYY"/>
-  <dlg:button dlg:id="CreateSheet" dlg:tab-index="2" dlg:left="48" dlg:top="76" dlg:width="43" dlg:height="11" dlg:value="Create Sheet">
+  <dlg:datefield dlg:id="SheetMonth" dlg:tab-index="0" dlg:left="50" dlg:top="31" dlg:width="36" dlg:height="9" dlg:strict-format="true" dlg:date-format="short_DDMMYY"/>
+  <dlg:button dlg:id="CreateSheet" dlg:tab-index="1" dlg:left="48" dlg:top="76" dlg:width="43" dlg:height="11" dlg:value="Create Sheet">
    <script:event script:event-name="on-keydown" script:macro-name="vnd.sun.star.script:Standard.CopyExpenditure.Main?language=Basic&amp;location=application" script:language="Script"/>
    <script:event script:event-name="on-performaction" script:macro-name="vnd.sun.star.script:Standard.CopyExpenditure.DialogEvent?language=Basic&amp;location=application" script:language="Script"/>
   </dlg:button>
-  <dlg:text dlg:id="Label1" dlg:tab-index="4" dlg:left="13" dlg:top="46" dlg:width="36" dlg:height="15" dlg:value="Days To Due"/>
-  <dlg:text dlg:id="Label2" dlg:tab-index="5" dlg:left="5" dlg:top="52" dlg:width="13" dlg:height="0" dlg:value="Label2"/>
-  <dlg:numericfield dlg:id="DaysToDue" dlg:tab-index="3" dlg:left="50" dlg:top="44" dlg:width="26" dlg:height="9"/>
-  <dlg:text dlg:style-id="0" dlg:id="Label3" dlg:tab-index="6" dlg:left="18" dlg:top="3" dlg:width="90" dlg:height="13" dlg:value="Create New Month Sheet"/>
-  <dlg:checkbox dlg:id="ForceCreate" dlg:tab-index="7" dlg:left="83" dlg:top="46" dlg:width="51" dlg:height="11" dlg:value="Force Create" dlg:checked="false"/>
+  <dlg:text dlg:id="Label1" dlg:tab-index="3" dlg:left="13" dlg:top="46" dlg:width="36" dlg:height="15" dlg:value="Days To Due"/>
+  <dlg:text dlg:id="Label2" dlg:tab-index="4" dlg:left="5" dlg:top="52" dlg:width="13" dlg:height="0" dlg:value="Label2"/>
+  <dlg:numericfield dlg:id="DaysToDue" dlg:tab-index="2" dlg:left="50" dlg:top="44" dlg:width="26" dlg:height="9"/>
+  <dlg:text dlg:style-id="0" dlg:id="Label3" dlg:tab-index="5" dlg:left="18" dlg:top="3" dlg:width="90" dlg:height="13" dlg:value="Create New Month Sheet"/>
+  <dlg:checkbox dlg:id="ForceCreate" dlg:tab-index="6" dlg:left="83" dlg:top="46" dlg:width="51" dlg:height="11" dlg:value="Force Create" dlg:checked="false"/>
+  <dlg:text dlg:id="Label4" dlg:tab-index="7" dlg:left="18" dlg:top="31" dlg:width="30" dlg:height="13" dlg:value="Sheet Date"/>
  </dlg:bulletinboard>
 </dlg:window>

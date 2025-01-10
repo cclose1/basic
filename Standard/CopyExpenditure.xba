@@ -5,30 +5,45 @@ Option Explicit
 
 Dim dialog AS Object
 &apos;
-&apos; This does not seem to work
+&apos; Returns a cell where the cell name matches name.
 &apos;
-Function GetCellId(name AS String, isRef AS Boolean) AS string
+&apos; name  The required cell identifier.
+&apos; byVal Defines the way name is used. If true name matches the content of the cell, otherwise it matches
+&apos;       the name assigned to the cell. If true there could be more than one cell matching.
+&apos; sheet Is a sheet object if present and the search is for named cells that have scope in sheet,
+&apos;       otherwise, the search is names having global scope
+&apos;
+Function GetCellId(name AS String, isRef AS Boolean, Optional sheet AS Object) AS string
 	Dim oRanges    as object
 	Dim oNamedCell as object
  	Dim iNMCount   as integer
  	Dim i          as integer
  
+ 	If IsMissing(sheet) Then sheet = ThisComponent
+ 	
 	GetCellId = &quot;&quot;
-	oRanges   = ThisComponent.NamedRanges
+	oRanges   = sheet.NamedRanges
 	
-	For i = 0 to oRanges.GetCount -1
+	For i = 0 to oRanges.GetCount() - 1
 		oNamedCell = oRanges.GetByIndex(i)
-		
-		if oNamedCell.content = name AND isRef = true  then
-			GetCellId	= oNamedCell.Name
-		elseIf oNamedCell.name = name AND isRef = false  then
-			GetCellId	= oNamedCell.content
+	&apos;
+	&apos; Note: Looking at the fields in oNamedCell shows them to be out of scope, i.e. executing
+	&apos;       look on oNamedCell.Content shows out of scope, however, look on  oNamedCell, shows the fields have
+	&apos;       values.
+	&apos;
+	If oNamedCell.Content = name AND isRef = true  then
+			GetCellId = oNamedCell.Name
+		elseIf oNamedCell.Name = name AND isRef = false  then
+			GetCellId = oNamedCell.Content
 		end if
 		
 &apos;		If GetCellId &lt;&gt; &quot;&quot; Then Exit Function
 	Next i
 End Function
-
+&apos;
+&apos; Converts a data sheet name, of the form mmmyy, to a date starting at the first day of the month, e.g.
+&apos; Dec24 yields the date 01/12/2024. The case of the month is ignored.
+&apos;
 Function nameToDate(name AS String) AS Date
 	Dim month AS String
 	
@@ -69,7 +84,14 @@ Function nameToDate(name AS String) AS Date
 	
 	nameToDate = DateSerial(&quot;20&quot; &amp; Mid(name, 4, 2), month, 1)
 End Function
-
+&apos;
+&apos; Converts a date to a data sheet name.
+&apos;
+&apos; The data sheet names are of the form mmmyy, i.e. 01/12/24 converts to Dec24.
+&apos;
+Function getDateSheetName(date As Date)
+	getDateSheetName = Format(date, &quot;mmmyy&quot;)
+End Function
 &apos;
 &apos; Converts a col number to its equivalent text. This seems to be a representation of col converted to a
 &apos; number based 26, i.e. each digit is is represented by the ASCII characters A to Z. A is digit 1 and
@@ -100,23 +122,6 @@ Function columnToText(ByVal col As Long) AS String
 		end if
 			
 		columnToText = Chr(digit + 64)  &amp; columnToText
-	Loop
-End Function
-
-&apos;
-&apos; This yields the same as the above, but to my mind is harder to see why.
-&apos;
-&apos; Not used.
-&apos;
-Function columnToTextX(ByVal col As Long) AS String
-	Dim Digit AS Integer
-	
-	columnToTextX = &quot;&quot;
-	
-	Do While col &gt;= 0
-		Digit        = col Mod 26
-		col          = Int((col - digit - 1) / 26)		
-		columnToTextX = Chr(digit + 65)  &amp; columnToTextX
 	Loop
 End Function
 &apos;
@@ -150,10 +155,6 @@ Function toRef(column AS Integer, row AS Integer, absolute AS Boolean, sheetName
     If sheetName &lt;&gt; &quot;&quot; Then 
     	toRef = sheetName + &quot;.&quot; + toRef
     End If
-End Function
-
-Function getSheetMonthName(date As Date)
-	getSheetMonthName = Format(date, &quot;mmmyy&quot;)
 End Function
 
 Function getLabelRow(sheet AS Object, label AS String, labelCol AS Integer)
@@ -266,24 +267,6 @@ Sub setSummaryCell(summary AS Object,sumCol AS Variant, sumRow AS Integer, sourc
 	setCell(summary, sumCol, sumRow, source, 1, row, true, true)
 End Sub
 
-Sub Test(Max AS Long)
-	Dim text AS String
-	Dim temp AS String
-	Dim Id   AS Long
-	Dim cid  AS Long
-	
-	For Id = 1 to Max
-		text = columnToText(Id)
-		temp = columnToTextX(Id)
-		cid  = colToNumber(temp)
-	
-		If text &lt;&gt; temp Then
-			MsgBox(&quot;Mismatch &quot; + Id)
-&apos;			Exit For
-		End if
-	Next
-End Sub
-
 Function getCurrentSheet() AS Object
 	Dim sheets AS Object
 	
@@ -305,17 +288,21 @@ Sub createMonth(Optional date AS Date)
 	Dim cell    AS Object
 	
 	cMonth = getCurrentSheet()
+	row    = getLabelRow(cMonth, &quot;Early Pension&quot;, colToNumber(&quot;F&quot;))
 	
+	If row &gt;= 0 Then	
+	    cell       = cMonth.getCellByPosition(colToNumber(&quot;D&quot;), row)
+    	cell.Value = 0
+    End If
+    
 	If IsMissing(date) Then
-		date   = DateAdd(&quot;m&quot;, 1, nameToDate(cmonth.getName()))
+		date = DateAdd(&quot;m&quot;, 1, nameToDate(cmonth.getName()))
 	end if
 	
-	shNxt = GetCellId(&quot;YearlyPension&quot;, false)
 &apos;	test(10000)
-	shNxt  = getSheetMonthName(date)
 	sheets = ThisComponent.getSheets()
 	sheet  = sheets.getByName(&quot;Regular&quot;)
-	
+	shNxt  = getDateSheetName(date)
 	sheets.copyByName(sheet.Name, shNxt, cMonth.RangeAddress.Sheet)
 	nMonth = sheets.getByName(shNxt)
 	copyCCData(nMonth, cMonth)
@@ -323,14 +310,18 @@ Sub createMonth(Optional date AS Date)
 	summary = sheets.getByName(&quot;Summary&quot;)
 	ins     = getLabelRow(summary, &quot;Average&quot;, 6) - 1
 	summary.Rows.insertByIndex(ins, 1)
-	summary.getCellByPosition(0, ins).setString(Format(date, &quot;mm/dd/yy&quot;))
+	cell              = 	summary.getCellByPosition(0, ins)
+	cell.Value        = date
+	cell.NumberFormat = 30
 	setCell(summary, 2, ins, nMonth, &quot;Q&quot;, row, true, true)
-	setCellValue(summary, 1, ins + 4, nMonth, &quot;YearlyPension&quot;, true, false) &apos;Won&apos;t work for OpenOffice
+	setCellValue(summary,   1, ins + 4, nMonth, &quot;YearlyPension&quot;, true, false) &apos;Won&apos;t work for OpenOffice
+	setCellValue(summary, &quot;I&quot;, ins,     nMonth, &quot;B1&quot;,            true, false)
 	setSummaryCell(summary, &quot;B&quot;, ins, nMonth, &quot;Gain&quot;)
 	setSummaryCell(summary, &quot;D&quot;, ins, nMonth, &quot;Credit Card&quot;)
 	setSummaryCell(summary, &quot;E&quot;, ins, nMonth, &quot;CC Payment&quot;)
 	setSummaryCell(summary, &quot;F&quot;, ins, nMonth, &quot;Pension Income&quot;)
 	setSummaryCell(summary, &quot;G&quot;, ins, nMonth, &quot;Bank Spend&quot;)
+	setSummaryCell(summary, &quot;J&quot;, ins, nMonth, &quot;None Monthly&quot;)
 End Sub
 
 Sub startDialog()
@@ -338,7 +329,7 @@ Sub startDialog()
 	Dim toGo AS Integer
 	
     BasicLibraries.LoadLibrary(&quot;Tools&quot;)
-	date   = DateAdd(&quot;m&quot;, 1, nameToDate(getCurrentSheet.getName()))
+	date   = DateAdd(&quot;m&quot;, 1, nameToDate(getCurrentSheet().getName()))
 	toGo   = DateDiff(&quot;d&quot;, now(), date)
     dialog = LoadDialog(&quot;Standard&quot;, &quot;NewMonth&quot;) 
    	dialog.getControl(&quot;SheetMonth&quot;).text = date
@@ -367,5 +358,84 @@ Sub dialogEvent(par AS Object)
 	createMonth(date)
 	MsgBox &quot;Success&quot;
 	dialog.endExecute()
+End Sub
+
+&apos;
+&apos; This yields the same as ColumnToText, but to my mind is harder to see why.
+&apos;
+&apos; Not used.
+&apos;
+Function columnToTextX(ByVal col As Long) AS String
+	Dim Digit AS Integer
+	
+	columnToTextX = &quot;&quot;
+	
+	Do While col &gt;= 0
+		Digit         = col Mod 26
+		col           = Int((col - digit - 1) / 26)		
+		columnToTextX = Chr(digit + 65)  &amp; columnToTextX
+	Loop
+End Function
+&apos;
+&apos; More usual way of converting number to anotherr base.
+&apos; 
+Function columnToTextY(ByVal col As Long) AS String
+	Dim Digit AS Integer
+	
+	columnToTextY = &quot;&quot;
+	
+	Do
+		Digit         = col Mod 26
+		col           = Int(col / 26)		
+		columnToTextY = Chr(digit + 65)  &amp; columnToTextY
+	Loop Until col = 0
+End Function
+
+Sub Test()
+	Dim text    AS String
+	Dim temp    AS String
+	Dim Id      AS Long
+	Dim cid     AS Long
+	Dim max     AS Long
+	Dim errors  AS Long
+	Dim regular AS Object
+&apos;	Dim date    AS Date
+	
+&apos;	MsgBox(&quot;In Test&quot;)
+	regular = ThisComponent.getSheets().getByName(&quot;Summary&quot;)
+	regular.getCellByPosition(0, 19).setFormula(Format(date, &quot;mm/dd/yy&quot;))
+	regular.getCellByPosition(0, 21).Value = date
+	
+	regular.getCellByPosition(0, 19).NumberFormat = 30
+	regular.getCellByPosition(0, 21).NumberFormat = 30
+	max = 	regular.getCellByPosition(0, 21).NumberFormat
+	text    = GetCellId(&quot;YearlyPension&quot;, false)
+	regular = ThisComponent.getSheets().getByName(&quot;Regular&quot;)
+	text    = GetCellId(&quot;YearlyPension&quot;, false, regular)	
+	
+	max    = 10000
+	errors = 0
+	text   = columnToText(25)
+	temp   = columnToTextX(25)
+	text   = columnToText(26)
+	temp   = columnToTextX(26)
+	text   = columnToText(27)
+	temp   = columnToTextX(27)
+	temp   = columnToTextY(0)
+	temp   = columnToTextY(26)
+	temp   = columnToTextY(27)
+
+	For Id = 1 to Max
+		text = columnToText(Id)
+		temp = columnToTextX(Id)
+		cid  = colToNumber(temp)
+	
+		If text &lt;&gt; temp AND errors &lt; 10 Then
+			MsgBox(&quot;Mismatch &quot; + Id)
+			errors = errors + 1
+			
+			If Errors = 10 Then Exit sub
+		End if
+	Next
 End Sub
 </script:module>
