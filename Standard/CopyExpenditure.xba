@@ -308,7 +308,7 @@ Sub createMonth(Optional date AS Date)
 	copyCCData(nMonth, cMonth)
 	row     = getLabelRow(nMonth, &quot;Bank Committed&quot;, 0)
 	summary = sheets.getByName(&quot;Summary&quot;)
-	ins     = getLabelRow(summary, &quot;Average&quot;, 6) - 1
+	ins     = getLabelRow(summary, &quot;Average&quot;, 5) - 1
 	summary.Rows.insertByIndex(ins, 1)
 	cell              = 	summary.getCellByPosition(0, ins)
 	cell.Value        = date
