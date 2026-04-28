@@ -238,8 +238,8 @@ End Sub
 &apos;
 &apos; Copy credit card data and the bank balance of the current sheet to the new sheet.
 &apos; 
-&apos; The row that has the text Bank Committed contains the credit card data in columns Q to V. These are
-&apos; copied to the same columns in row 2 of the new sheet, apart from column Q which is copied to column D.
+&apos; The row that has the text Bank Committed contains the credit card data in columns R to W. These are
+&apos; copied to the same columns in row 2 of the new sheet, apart from column R which is copied to column D.
 &apos;
 &apos; The bank balance is in columm B of row that has the text Bank Not Cleared column A. This is copied
 &apos; to column B of row 0 in the new sheet.
@@ -252,12 +252,12 @@ Sub copyCCData(newSh AS Object, current AS Object)
 	setCell(newSh, &quot;B&quot;, 0, current, &quot;B&quot;, curRow, false, false)
 	
 	curRow = getLabelRow(current, &quot;Bank Committed&quot;, 0)
-	setCell(newSh, &quot;D&quot;, 2, current, &quot;Q&quot;, curRow, false, false)
-	setCell(newSh, &quot;R&quot;, 2, current, &quot;R&quot;, curRow, false, false)
+	setCell(newSh, &quot;D&quot;, 2, current, &quot;R&quot;, curRow, false, false)
 	setCell(newSh, &quot;S&quot;, 2, current, &quot;S&quot;, curRow, false, false)
 	setCell(newSh, &quot;T&quot;, 2, current, &quot;T&quot;, curRow, false, false)
 	setCell(newSh, &quot;U&quot;, 2, current, &quot;U&quot;, curRow, false, false)
 	setCell(newSh, &quot;V&quot;, 2, current, &quot;V&quot;, curRow, false, false)
+	setCell(newSh, &quot;W&quot;, 2, current, &quot;W&quot;, curRow, false, false)
 End Sub
 
 Sub setSummaryCell(summary AS Object,sumCol AS Variant, sumRow AS Integer, source AS Object, label AS String)
@@ -313,7 +313,7 @@ Sub createMonth(Optional date AS Date)
 	cell              = 	summary.getCellByPosition(0, ins)
 	cell.Value        = date
 	cell.NumberFormat = 30
-	setCell(summary, 2, ins, nMonth, &quot;Q&quot;, row, true, true)
+	setCell(summary, 2, ins, nMonth, &quot;R&quot;, row, true, true)
 	setCellValue(summary,   1, ins + 4, nMonth, &quot;YearlyPension&quot;, true, false) &apos;Won&apos;t work for OpenOffice
 	setCellValue(summary, &quot;I&quot;, ins,     nMonth, &quot;B1&quot;,            true, false)
 	setSummaryCell(summary, &quot;B&quot;, ins, nMonth, &quot;Gain&quot;)
